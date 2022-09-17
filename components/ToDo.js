@@ -1,6 +1,8 @@
 /* eslint-disable prettier/prettier */
-import React, {Fragment, useState} from 'react';
+import React, {Fragment, useEffect, useState} from 'react';
 import SelectDropdown from 'react-native-select-dropdown';
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   View,
@@ -22,82 +24,102 @@ const ToDo = () => {
     'Thursday',
   ];
 
-  const [toDo, setToDo] = useState('');
-
-  const [toDoList, setToDoList] = useState([
+  let toDoListDays = [
     {
       key: 1,
       title: 'Friday',
-      data: ['ToDo1', 'ToDo2', 'ToDo3'],
+      data: [],
     },
     {
       key: 2,
       title: 'Saturday',
-      data: ['ToDo1', 'ToDo2', 'ToDo3'],
+      data: [],
     },
     {
       key: 3,
       title: 'Sunday',
-      data: ['ToDo1', 'ToDo2', 'ToDo3'],
+      data: [],
     },
     {
       key: 4,
       title: 'Monday',
-      data: ['ToDo1', 'ToDo2', 'ToDo3'],
+      data: [],
     },
     {
       key: 5,
       title: 'Tuesday',
-      data: ['ToDo1', 'ToDo2', 'ToDo3'],
+      data: [],
     },
     {
       key: 6,
       title: 'Wednesday',
-      data: ['ToDo1', 'ToDo2', 'ToDo3'],
+      data: [],
     },
     {
       key: 7,
       title: 'Thursday',
-      data: ['ToDo1', 'ToDo2', 'ToDo3'],
+      data: [],
     },
-  ]);
+  ];
 
-  const removeHandler = (item, index, section) => {
-    const set = toDoList.map(data => {
-      let filtered;
-      if (data.key === section.key) {
-        filtered = {
-          data: [...data.data.filter((_, idx) => idx !== index)],
-        };
-      }
-      return {...data, ...filtered};
-    });
-    // console.log(set);
-    setToDoList(set);
-  };
+  const [toDo, setToDo] = useState('');
+  const [toDoList, setToDoList] = useState([]);
 
-  const addHandler = (toDoo, index) => {
-    // console.log(toDoo, index);
-    if (toDoo === '') {
-      return;
+  const getData = async () => {
+    try {
+      const jsonValue = await AsyncStorage.getItem('@ToDo');
+      return jsonValue != null
+        ? setToDoList(JSON.parse(jsonValue))
+        : setToDoList(toDoListDays);
+    } catch (error) {
+      console.log(error);
     }
-    const set = toDoList.map(data => {
-      let addedToData;
-      if (data.key === index) {
-        addedToData = {
-          data: [...data.data, toDoo],
-        };
-      }
-      return {...data, ...addedToData};
-    });
-    // console.log(set);
-    setToDoList(set);
   };
+
+  const storeOrRemoveHandler = async (value, index, section) => {
+    try {
+      if (!section && value === '') {
+        return;
+      } else if (!section && value) {
+        toDoList.map(data => {
+          if (data.key === index) {
+            data.data = [...data.data, value];
+          }
+        });
+
+        const jsonValue = JSON.stringify([...toDoList]);
+        console.log(jsonValue);
+
+        await AsyncStorage.setItem('@ToDo', jsonValue);
+      }
+
+      // To remove ToDo:
+      else {
+        toDoList.map(data => {
+          if (data.key === section.key) {
+            data.data = [...data.data.filter(item => item !== value)];
+          }
+        });
+
+        const jsonValue = JSON.stringify([...toDoList]);
+
+        await AsyncStorage.setItem('@ToDo', jsonValue);
+      }
+
+      getData();
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  useEffect(() => {
+    getData();
+  }, []);
 
   return (
     <Fragment>
       <TextInput
-        caretHidden={false}
+        // caretHidden={true}
         style={styles.input}
         placeholder="Enter your To Do"
         placeholderTextColor={'rgba(255, 255, 255, 0.67)'}
@@ -108,9 +130,10 @@ const ToDo = () => {
       />
 
       <SelectDropdown
+        disabled={!toDo}
         data={days}
         onSelect={(selectedItem, index) => {
-          addHandler(toDo, index + 1);
+          storeOrRemoveHandler(toDo, index + 1);
           setToDo('');
         }}
         buttonTextAfterSelection={(selectedItem, index) => {
@@ -127,7 +150,7 @@ const ToDo = () => {
         rowTextStyle={styles.rowTextStyle}
         buttonTextStyle={styles.buttonTextStyle}
         buttonStyle={styles.buttonStyle}
-        defaultButtonText="Select ToDo Day"
+        defaultButtonText="Select desired ToDo day"
       />
 
       <SectionList
@@ -137,7 +160,9 @@ const ToDo = () => {
             <Text style={styles.txt}>{item}</Text>
             <TouchableOpacity
               style={styles.touchableOpacity}
-              onPress={() => removeHandler(item, index, section)}>
+              onPress={() => {
+                storeOrRemoveHandler(item, index, section);
+              }}>
               <Text style={[styles.txt, styles.txtRemove]}>remove</Text>
             </TouchableOpacity>
           </View>
@@ -162,6 +187,7 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     fontSize: 17,
   },
+
   header: {
     marginTop: 25,
     marginBottom: 5,
@@ -170,34 +196,34 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: 'bold',
   },
+
   txt: {
     textAlign: 'center',
     marginVertical: 3,
     backgroundColor: 'rgb(95, 20, 233)',
     borderRadius: 50,
-    paddingVertical: 10,
+    padding: 10,
+    fontSize: 16,
     color: 'rgb(255,255,255)',
     width: 275,
   },
+
   txtRemove: {
     width: 95,
     backgroundColor: 'rgb(103, 60, 171)',
   },
 
   view: {
-    display: 'flex',
     flexDirection: 'row',
     justifyContent: 'space-around',
+    alignItems: 'center',
     width: '100%',
-  },
-
-  touchableOpacity: {
-    cursor: 'pointer',
   },
 
   dropdown: {
     backgroundColor: 'rgb(49, 139, 218)',
   },
+
   rowTextStyle: {
     color: 'white',
   },
@@ -205,12 +231,12 @@ const styles = StyleSheet.create({
   buttonTextStyle: {
     color: 'white',
   },
+
   buttonStyle: {
     backgroundColor: 'rgb(83, 73, 195)',
-    borderRadius: 10,
-    padding: 0,
-    width: 175,
-    marginHorizontal: '30%',
+    width: '60%',
     marginTop: 10,
+    marginHorizontal: '20%',
+    borderRadius: 10,
   },
 });
